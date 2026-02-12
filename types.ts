@@ -16,6 +16,7 @@ export interface Habit {
   completedDays: string[]; // Datas ISO (YYYY-MM-DD)
   frequency: number; // Vezes por semana (1-7)
   color: string;
+  streak?: number;
 }
 
 export interface DaySnapshot {
@@ -26,6 +27,7 @@ export interface DaySnapshot {
   caffeine: number;
   habitsCompleted: number;
   totalHabits: number;
+  cognitiveLoad?: number;
 }
 
 export interface HealthStats {
@@ -77,5 +79,5 @@ export interface NexusTheme {
   };
 }
 
-export type View = 'dashboard' | 'habits' | 'hydration' | 'sleep' | 'reading' | 'planner' | 'settings' | 'progress';
+export type View = 'dashboard' | 'habits' | 'hydration' | 'sleep' | 'reading' | 'planner' | 'settings' | 'progress' | 'nexus';
 export type TimeScale = 'semana' | 'mês' | 'ano';

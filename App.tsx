@@ -12,7 +12,8 @@ import Settings from './components/Settings';
 import ProgressDashboard from './components/ProgressDashboard';
 import Login from './components/Login';
 import Logo from './components/Logo';
-import { Search, LayoutDashboard, CheckSquare, Calendar, BarChart3, Settings as SettingsIcon, CloudOff, Wifi, Bell } from 'lucide-react';
+import AIAssistant from './components/AIAssistant';
+import { Search, LayoutDashboard, CheckSquare, Calendar, BarChart3, Settings as SettingsIcon, CloudOff, Bell, BrainCircuit } from 'lucide-react';
 import { requestNotificationPermission, sendNotification } from './services/notificationService';
 
 const themes: NexusTheme[] = [
@@ -33,15 +34,6 @@ const themes: NexusTheme[] = [
     accent: '#059669',
     muted: 'rgba(16, 185, 129, 0.1)',
     metrics: { water: '#10b981', sleep: '#34d399', energy: '#059669' }
-  },
-  { 
-    id: 'crimson-night', 
-    name: 'Crimson Night',
-    primary: '#e11d48', 
-    secondary: '#fb7185',
-    accent: '#be123c',
-    muted: 'rgba(225, 29, 72, 0.1)',
-    metrics: { water: '#e11d48', sleep: '#fb7185', energy: '#be123c' }
   }
 ];
 
@@ -79,48 +71,6 @@ const App: React.FC = () => {
 
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
-  // Background Checker para notificações de tarefas
-  useEffect(() => {
-    if (!user) return;
-
-    const checkTasks = () => {
-      const now = new Date();
-      const todayISO = now.toLocaleDateString('sv-SE');
-      const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-
-      setTasks(currentTasks => {
-        let changed = false;
-        const updatedTasks = currentTasks.map(task => {
-          if (
-            task.date === todayISO && 
-            task.reminderTime === currentTime && 
-            !task.completed && 
-            !task.notified
-          ) {
-            sendNotification(`Lembrete Officium: ${task.title}`, {
-              body: `Sua tarefa agendada para agora está aguardando conclusão.`,
-              tag: task.id
-            });
-            changed = true;
-            return { ...task, notified: true };
-          }
-          return task;
-        });
-
-        if (changed) {
-          localStorage.setItem('officium_tasks', JSON.stringify(updatedTasks));
-          return updatedTasks;
-        }
-        return currentTasks;
-      });
-    };
-
-    const interval = setInterval(checkTasks, 60000); 
-    requestNotificationPermission(); 
-    
-    return () => clearInterval(interval);
-  }, [user]);
-
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -144,12 +94,9 @@ const App: React.FC = () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setDeferredPrompt(null);
-    }
+    if (outcome === 'accepted') setDeferredPrompt(null);
   };
 
-  // Sincronização de Histórico e Persistência
   useEffect(() => {
     if (!user) return;
     const today = new Date().toLocaleDateString('sv-SE');
@@ -171,17 +118,6 @@ const App: React.FC = () => {
       
       let newHistory = history;
       if (todayIdx > -1) {
-        const existing = history[todayIdx];
-        if (
-          existing.water === currentSnapshot.water &&
-          existing.energy === currentSnapshot.energy &&
-          existing.sleep === currentSnapshot.sleep &&
-          existing.caffeine === currentSnapshot.caffeine &&
-          existing.habitsCompleted === currentSnapshot.habitsCompleted &&
-          existing.totalHabits === currentSnapshot.totalHabits
-        ) {
-          return prev; // Sem alterações reais
-        }
         newHistory[todayIdx] = currentSnapshot;
       } else {
         newHistory.push(currentSnapshot);
@@ -191,7 +127,7 @@ const App: React.FC = () => {
       localStorage.setItem('officium_stats', JSON.stringify(updatedStats));
       return updatedStats;
     });
-  }, [stats.water, stats.energy, stats.sleep, stats.caffeine, stats.bedTime, stats.wakeTime, habits, user]);
+  }, [stats.water, stats.energy, stats.sleep, stats.caffeine, habits, user]);
 
   useEffect(() => {
     if (user) localStorage.setItem('officium_user', JSON.stringify(user));
@@ -204,10 +140,6 @@ const App: React.FC = () => {
 
     if (isLightMode) document.body.classList.add('light-mode');
     else document.body.classList.remove('light-mode');
-
-    const theme = themes[themeIndex];
-    document.documentElement.style.setProperty('--primary-theme', theme.primary);
-    document.documentElement.style.setProperty('--primary-muted', theme.muted);
   }, [user, themeIndex, isLightMode, habits, tasks, books, readingGoal]);
 
   const updateStats = useCallback((updates: Partial<HealthStats>) => {
@@ -232,8 +164,6 @@ const App: React.FC = () => {
     const targetDate = date || new Date().toLocaleDateString('sv-SE');
     setTasks(prev => prev.map(t => {
       if (t.id !== id) return t;
-      
-      // Se for recorrente
       if (t.frequency !== undefined) {
         const completedDays = t.completedDays || [];
         return {
@@ -243,21 +173,17 @@ const App: React.FC = () => {
             : [...completedDays, targetDate]
         };
       }
-      
-      // Se for única
       return { ...t, completed: !t.completed };
     }));
   };
 
   if (!user) return <Login onLogin={setUser} isLightMode={isLightMode} />;
 
-  const currentTheme = themes[themeIndex];
+  const currentTheme = themes[themeIndex] || themes[0];
 
   return (
     <div className={`min-h-screen flex flex-col md:flex-row transition-colors duration-500 ${isLightMode ? 'bg-slate-50' : 'bg-[#050505]'}`}>
-      <div className="hidden md:block">
-        <Sidebar currentView={view} setView={setView} currentTheme={currentTheme} user={user} />
-      </div>
+      <Sidebar currentView={view} setView={setView} currentTheme={currentTheme} user={user} />
 
       <main className="flex-1 w-full max-w-full overflow-hidden relative pb-32 md:pb-10 md:ml-64">
         <header className="px-5 py-4 sticky top-0 z-40 backdrop-blur-xl border-b border-white/5 md:border-none md:bg-transparent flex items-center justify-between pt-safe">
@@ -273,110 +199,44 @@ const App: React.FC = () => {
             )}
           </div>
           
-          <div className="flex-1 max-w-[150px] md:max-w-xl mx-4 hidden sm:block">
-             <div className="relative group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={14} />
-                <input 
-                  type="text" 
-                  placeholder="Pesquisar..." 
-                  className={`w-full rounded-2xl pl-10 pr-4 py-2 text-[10px] font-bold outline-none transition-all ${isLightMode ? 'bg-white border border-slate-200' : 'bg-white/5 border border-white/5'}`} 
-                />
-             </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => {
-                requestNotificationPermission().then(granted => {
-                  if (granted) sendNotification("Notificações Ativas", { body: "Você receberá lembretes de tarefas agora." });
-                });
-              }}
-              className="p-2 rounded-xl border border-white/5 hover:bg-white/5 text-zinc-500 transition-all active:scale-90"
-              title="Permissões de Notificação"
-            >
-              <Bell size={18} />
-            </button>
-            <button onClick={() => setView('settings')} className="flex items-center gap-2 p-1 rounded-xl border border-white/5 active:scale-90 transition-transform">
+          <div className="flex items-center gap-4">
+             <button 
+              onClick={() => setView('nexus')}
+              className={`p-3 rounded-2xl transition-all ${view === 'nexus' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white/5 text-zinc-500 border border-white/5'}`}
+             >
+                <BrainCircuit size={18} />
+             </button>
+             <button onClick={() => setView('settings')} className="flex items-center gap-2 p-1 rounded-xl border border-white/5 active:scale-90 transition-transform">
               {user.avatar ? (
-                <img src={user.avatar} className="w-6 h-6 rounded-lg object-cover" alt={user.name} />
+                <img src={user.avatar} className="w-8 h-8 rounded-xl object-cover" alt={user.name} />
               ) : (
-                <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-indigo-600 text-[8px] font-bold text-white">{user.name[0]}</div>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-indigo-600 text-[10px] font-bold text-white">{user.name[0]}</div>
               )}
             </button>
           </div>
         </header>
 
-        <div className="px-4 py-6 md:p-10 max-w-5xl mx-auto">
+        <div className="px-4 py-6 md:p-10 max-w-6xl mx-auto">
           <div className="animate-fadeIn">
-            {view === 'dashboard' && (
-              <Dashboard 
-                stats={stats} 
-                books={books} 
-                setView={setView} 
-                currentTheme={currentTheme} 
-                user={user} 
-                habits={habits} 
-                tasks={tasks}
-                canInstall={!!deferredPrompt}
-                onInstall={handleInstallApp}
-              />
-            )}
-            {view === 'habits' && (
-              <HabitTracker 
-                habits={habits} 
-                onToggle={toggleHabit} 
-                onAddHabit={h => setHabits(p => [...p, h])} 
-                onUpdateHabit={h => setHabits(p => p.map(i => i.id === h.id ? h : i))}
-                onDeleteHabit={id => setHabits(p => p.filter(i => i.id !== id))}
-                currentTheme={currentTheme} 
-                user={user}
-                onUpdateUser={setUser}
-              />
-            )}
-            {view === 'planner' && (
-              <WeeklyPlanner 
-                tasks={tasks} 
-                onToggle={toggleTask} 
-                onAddTask={t => {
-                  setTasks(p => [...p, t]);
-                  sendNotification("Evento Criado", { body: `Sua tarefa "${t.title}" foi agendada.` });
-                }} 
-                onUpdateTask={t => setTasks(p => p.map(i => i.id === t.id ? t : i))}
-                onDeleteTask={id => setTasks(p => p.filter(i => i.id !== id))}
-                currentTheme={currentTheme} 
-              />
-            )}
+            {view === 'dashboard' && <Dashboard stats={stats} books={books} setView={setView} currentTheme={currentTheme} user={user} habits={habits} tasks={tasks} canInstall={!!deferredPrompt} onInstall={handleInstallApp} />}
+            {view === 'habits' && <HabitTracker habits={habits} onToggle={toggleHabit} onAddHabit={h => setHabits(p => [...p, h])} onUpdateHabit={h => setHabits(p => p.map(i => i.id === h.id ? h : i))} onDeleteHabit={id => setHabits(p => p.filter(i => i.id !== id))} currentTheme={currentTheme} user={user} onUpdateUser={setUser} />}
+            {view === 'planner' && <WeeklyPlanner tasks={tasks} onToggle={toggleTask} onAddTask={t => setTasks(p => [...p, t])} onUpdateTask={t => setTasks(p => p.map(i => i.id === t.id ? t : i))} onDeleteTask={id => setTasks(p => p.filter(i => i.id !== id))} currentTheme={currentTheme} />}
             {view === 'progress' && <ProgressDashboard habits={habits} stats={stats} tasks={tasks} books={books} currentTheme={currentTheme} />}
             {view === 'settings' && <Settings themes={themes} themeIndex={themeIndex} setThemeIndex={setThemeIndex} isLightMode={isLightMode} setIsLightMode={setIsLightMode} user={user} onUpdateUser={setUser} canInstall={!!deferredPrompt} onInstall={handleInstallApp} />}
             {view === 'hydration' && <Hydration water={stats.water} updateWater={v => updateStats({water: v})} currentTheme={currentTheme} user={user} stats={stats} />}
-            {view === 'sleep' && (
-              <SleepEnergy 
-                sleep={stats.sleep} 
-                energy={stats.energy} 
-                caffeine={stats.caffeine} 
-                socialBattery={stats.socialBattery} 
-                bedTime={stats.bedTime || '23:00'}
-                wakeTime={stats.wakeTime || '07:00'}
-                updateSleep={v => updateStats({sleep: v})} 
-                updateEnergy={v => updateStats({energy: v})} 
-                updateCaffeine={v => updateStats({caffeine: v})} 
-                updateSocialBattery={v => updateStats({socialBattery: v})} 
-                updateTimes={(b, w) => updateStats({bedTime: b, wakeTime: w})}
-                currentTheme={currentTheme} 
-                user={user}
-              />
-            )}
+            {view === 'sleep' && <SleepEnergy sleep={stats.sleep} energy={stats.energy} caffeine={stats.caffeine} socialBattery={stats.socialBattery} bedTime={stats.bedTime || '23:00'} wakeTime={stats.wakeTime || '07:00'} updateSleep={v => updateStats({sleep: v})} updateEnergy={v => updateStats({energy: v})} updateCaffeine={v => updateStats({caffeine: v})} updateSocialBattery={v => updateStats({socialBattery: v})} updateTimes={(b, w) => updateStats({bedTime: b, wakeTime: w})} currentTheme={currentTheme} user={user} />}
             {view === 'reading' && <ReadingHub books={books} readingGoal={readingGoal} onAddBook={b => setBooks(p => [...p, b])} onUpdateBook={b => setBooks(p => p.map(i => i.id === b.id ? b : i))} onRemoveBook={id => setBooks(p => p.filter(i => i.id !== id))} onUpdateGoal={setReadingGoal} currentTheme={currentTheme} />}
+            {view === 'nexus' && <AIAssistant stats={stats} habits={habits} tasks={tasks} user={user} />}
           </div>
         </div>
       </main>
 
-      <nav className={`md:hidden fixed bottom-4 left-4 right-4 h-16 rounded-3xl z-50 flex items-center justify-around px-2 backdrop-blur-2xl border transition-all duration-300 mb-safe ${isLightMode ? 'bg-white/80 border-slate-200 shadow-xl' : 'bg-black/80 border-white/10 shadow-2xl'}`}>
-        <MobileTab active={view === 'dashboard'} onClick={() => setView('dashboard')} icon={<LayoutDashboard size={20} />} theme={currentTheme} />
-        <MobileTab active={view === 'habits'} onClick={() => setView('habits')} icon={<CheckSquare size={20} />} theme={currentTheme} />
-        <MobileTab active={view === 'planner'} onClick={() => setView('planner')} icon={<Calendar size={20} />} theme={currentTheme} />
-        <MobileTab active={view === 'progress'} onClick={() => setView('progress')} icon={<BarChart3 size={20} />} theme={currentTheme} />
-        <MobileTab active={view === 'settings'} onClick={() => setView('settings')} icon={<SettingsIcon size={20} />} theme={currentTheme} />
+      <nav className={`md:hidden fixed bottom-6 left-6 right-6 h-20 rounded-[2.5rem] z-50 flex items-center justify-around px-4 backdrop-blur-3xl border transition-all duration-300 mb-safe ${isLightMode ? 'bg-white/90 border-slate-200 shadow-2xl' : 'bg-black/80 border-white/10 shadow-2xl'}`}>
+        <MobileTab active={view === 'dashboard'} onClick={() => setView('dashboard')} icon={<LayoutDashboard size={24} />} theme={currentTheme} />
+        <MobileTab active={view === 'habits'} onClick={() => setView('habits')} icon={<CheckSquare size={24} />} theme={currentTheme} />
+        <MobileTab active={view === 'planner'} onClick={() => setView('planner')} icon={<Calendar size={24} />} theme={currentTheme} />
+        <MobileTab active={view === 'progress'} onClick={() => setView('progress')} icon={<BarChart3 size={24} />} theme={currentTheme} />
+        <MobileTab active={view === 'settings'} onClick={() => setView('settings')} icon={<SettingsIcon size={24} />} theme={currentTheme} />
       </nav>
     </div>
   );
@@ -385,11 +245,11 @@ const App: React.FC = () => {
 const MobileTab = ({ active, onClick, icon, theme }: any) => (
   <button 
     onClick={onClick}
-    className={`relative flex items-center justify-center w-12 h-12 rounded-2xl transition-all duration-500 active:scale-75 ${active ? 'scale-110' : 'text-zinc-500 opacity-60'}`}
+    className={`relative flex items-center justify-center w-14 h-14 rounded-2xl transition-all duration-500 active:scale-75 ${active ? 'scale-110' : 'text-zinc-500 opacity-60'}`}
     style={active ? { color: theme.primary, backgroundColor: `${theme.primary}15` } : {}}
   >
     {icon}
-    {active && <div className="absolute -bottom-1 w-1 h-1 rounded-full bg-current" />}
+    {active && <div className="absolute -bottom-2 w-1.5 h-1.5 rounded-full bg-current" />}
   </button>
 );
 

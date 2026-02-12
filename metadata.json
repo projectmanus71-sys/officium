@@ -1,5 +1,8 @@
 {
-  "name": "Officium",
-  "description": "A high-end, dark-themed wellness ecosystem for tracking habits, health metrics, weekly planning, and readings.",
-  "requestFramePermissions": []
+  "name": "Officium Ecosystem",
+  "description": "High-end biohacking and wellness hub for tracking habits, health metrics, and cognitive expansion.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
 }
